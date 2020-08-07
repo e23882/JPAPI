@@ -7,7 +7,7 @@ import math
 import re
 import JPAPI
 
-#取得指定日期工時
+# 取得指定日期工時
 if len(sys.argv) < 5:
     print('參數數量錯誤')
 else:
@@ -16,5 +16,5 @@ else:
     if loginResult == 0:
         print('Login Fail')
     else:
-        #print(leo.SearchWorkTime('108', '06', '06'))
+        # print(leo.SearchWorkTime('108', '06', '06'))
         print(leo.SearchWorkTime(sys.argv[3], sys.argv[4], sys.argv[5]))

@@ -7,7 +7,7 @@ import math
 import re
 import JPAPI
 
-#計算加班時數
+# 計算加班時數
 if len(sys.argv) < 4:
     print('參數數量錯誤')
 else:
@@ -21,15 +21,15 @@ else:
         pass
     # 取得當月差勤資料
     getDataResult = leo.GetThisMonthArriveData()
-    if getDataResult ==0:
+    if getDataResult == 0:
         print('Failed to get the attendance data of the month')
         sys.exit()
     else:
         pass
-    
+
     # 計算差勤輸出請假資料
     calculateResult = leo.CalculateLeaveDay()
-    if calculateResult ==0:
+    if calculateResult == 0:
         print('Calculate Fail')
     else:
         pass

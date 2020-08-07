@@ -20,8 +20,7 @@ else:
         print('Login Fail')
     else:
         pass
-    if leo.AskLeave(int(sys.argv[3])+1911, sys.argv[4], sys.argv[5],sys.argv[6],sys.argv[7])==1:
+    if leo.AskLeave(int(sys.argv[3]) + 1911, sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7]) == 1:
         print("Ask Leave Success")
     else :
         print("Ask Leave Fail")
-    

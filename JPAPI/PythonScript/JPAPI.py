@@ -6,17 +6,18 @@ import os.path
 import math
 import re
 
+
 # Jepun請假API
 class JP:
-    #使用者帳號
+    # 使用者帳號
     username = 'leoyang'
-    #使用者密碼
+    # 使用者密碼
     password = '12345'
-    #年分
+    # 年分
     year = '109'
-    #月份
+    # 月份
     month = '09'
-    
+
     dynamicParameter = ''
     dynamicParameterValue = ''
     globalCookie = ''
@@ -31,7 +32,7 @@ class JP:
     # 登入
     def Login(self):
         url = "http://secom/work_time/MainN.asp"
-        querystring = {"Account":self.username,"password":self.password,"x":"38","y":"18"}
+        querystring = {"Account": self.username, "password": self.password, "x": "38", "y": "18"}
         headers = {
             'User-Agent': "PostmanRuntime/7.17.1",
             'Accept': "*/*",
@@ -46,16 +47,16 @@ class JP:
         }
         response = requests.request("POST", url, headers=headers, params=querystring)
         globalCookie = response.cookies.get_dict()
-        #print(cookies)
+        # print(cookies)
         st = str(globalCookie)
-        st = st[1:int(st.index(','))].replace("'","").replace(":","=").replace(" ","")
+        st = st[1:int(st.index(','))].replace("'", "").replace(":", "=").replace(" ", "")
         self.dynamicParameter = st[0:st.index('=')]
-        self.dynamicParameterValue=st[st.index('=')+1:]
-        if self.dynamicParameter != '' and self.dynamicParameterValue!= '':
+        self.dynamicParameterValue = st[st.index('=') + 1:]
+        if self.dynamicParameter != '' and self.dynamicParameterValue != '':
             return 1
         else:
             return 0
-    
+
     # 取得本月差勤資料到暫存資料庫(test.db SQLite)
     def GetThisMonthArriveData(self):
         headers = {
@@ -66,7 +67,7 @@ class JP:
             'Postman-Token': "fe30cd2c-cf0b-4344-8f6b-432c00c2be95,67dd0357-6993-4030-91c1-6a01033a640d",
             'Host': "secom",
             'Accept-Encoding': "gzip, deflate",
-            'Cookie': "Personal=Password=&Name=; "+self.dynamicParameter+"="+self.dynamicParameterValue,
+            'Cookie': "Personal=Password=&Name=; " + self.dynamicParameter + "=" + self.dynamicParameterValue,
             'Connection': "keep-alive",
             'cache-control': "no-cache"
         }
@@ -90,22 +91,24 @@ class JP:
         response = requests.request("Get", 'http://secom/work_time/Voc/OnTimeQya1.asp', headers=headers, params=data)
         response.encoding = 'big5'
         if response.status_code == 200:
-            #print('select ok')
-            result = response.text[response.text.index('<html>'):response.text.index('<html>')+response.text.index('</html>')].replace('\r','').replace('\n','').replace('\t','')
-            soup = bs(result.replace('s_Clr2','s_Clr1'), 'html.parser')
+            # print('select ok')
+            result = response.text[response.text.index('<html>'):response.text.index('<html>') + response.text.index(
+                '</html>')].replace('\r', '').replace('\n', '').replace('\t', '')
+            soup = bs(result.replace('s_Clr2', 's_Clr1'), 'html.parser')
             usefulData = soup.find_all('td', 'Rs_Clr1')
             Counter = 0
             data = ''
             self.Delete('delete from WorkTime')
             for item in usefulData:
-                if Counter ==0 :
-                    data = "'"+item.text.strip().replace('時',':').replace('分','').replace('  ','')+"'"
-                else :
-                    data = data +",'"+item.text.strip().replace('時',':').replace('分','').replace('  ','')+"'"
+                if Counter == 0:
+                    data = "'" + item.text.strip().replace('時', ':').replace('分', '').replace('  ', '') + "'"
+                else:
+                    data = data + ",'" + item.text.strip().replace('時', ':').replace('分', '').replace('  ', '') + "'"
                 Counter = Counter + 1
                 if Counter == 7:
-                    Counter =0
-                    self.InsertUpdate("INSERT INTO WorkTime (RowNo, Name, Department, WeekDay, Arrive, Leave, Other) VALUES ("+data+");")
+                    Counter = 0
+                    self.InsertUpdate(
+                        "INSERT INTO WorkTime (RowNo, Name, Department, WeekDay, Arrive, Leave, Other) VALUES (" + data + ");")
                     data = ''
                 else:
                     pass
@@ -114,52 +117,59 @@ class JP:
             return 1
         else:
             return 0
-    
-    #計算輸出加班時間、明細(from LocalDB)
-    def CalculateLeaveDay(self): 
+
+    # 計算輸出加班時間、明細(from LocalDB)
+    def CalculateLeaveDay(self):
         try:
             conn = sqlite3.connect(r"C:\Users\LeoYang\source\repos\JPAPI\JPAPI\bin\Debug\netcoreapp2.1\Test.db")
             cursorObj = conn.cursor()
-            cursorObj.execute("SELECT substr(WeekDay, 1, INSTR(WeekDay, '星期')-1) as 'Date', substr(Arrive, 1, 2) as 'ArriveHR', substr(Arrive, 4, 2) as 'ArriveMin', substr(Leave, 1, 2) as 'LeaveHR', substr(Leave, 4, 2) as 'LeaveMin', case when instr(Arrive, '99') = 1 then 'Error' when instr(Leave, '99') = 1 then 'Error' when substr(Arrive, 1, 2) = substr(Leave, 1, 2) then 'Error' else '' end as 'Status' FROM WorkTime")
+            cursorObj.execute(
+                "SELECT substr(WeekDay, 1, INSTR(WeekDay, '星期')-1) as 'Date', substr(Arrive, 1, 2) as 'ArriveHR', substr(Arrive, 4, 2) as 'ArriveMin', substr(Leave, 1, 2) as 'LeaveHR', substr(Leave, 4, 2) as 'LeaveMin', case when instr(Arrive, '99') = 1 then 'Error' when instr(Leave, '99') = 1 then 'Error' when substr(Arrive, 1, 2) = substr(Leave, 1, 2) then 'Error' else '' end as 'Status' FROM WorkTime")
             rows = cursorObj.fetchall()
             for row in rows:
-                arrive = int(row[1])*60+int(row[2])
-                leave = int(row[3])*60+int(row[4])
+                arrive = int(row[1]) * 60 + int(row[2])
+                leave = int(row[3]) * 60 + int(row[4])
                 data = 0
                 overwork = 0
-                overDetail  = ''
-                if (leave -arrive -570) > 60:
+                overDetail = ''
+                if (leave - arrive - 570) > 60:
                     # 1.計算加班
                     # 1.1計算加班第一小時
-                    data = leave -arrive -630
-                    overwork = overwork+1
+                    data = leave - arrive - 630
+                    overwork = overwork + 1
                     # 1.2計算加班第一小時後
-                    while data>=45:
-                        data = data-45
-                        overwork = overwork+1
-                    #================================================================================================================
+                    while data >= 45:
+                        data = data - 45
+                        overwork = overwork + 1
+                    # ================================================================================================================
                     # 2.計算加班明細
                     startHr = 9
                     # 2.1 如果有遲到重新設定開始時間
-                    if int(row[1])>9:
+                    if int(row[1]) > 9:
                         startHr = 9
                     else:
                         startHr = int(row[1])
-                    commonGoHomeTime = startHr*60+int(row[2])+90+480
+                    commonGoHomeTime = startHr * 60 + int(row[2]) + 90 + 480
                     currentHr = ''
                     currentMin = ''
                     for i in range(overwork):
-                        if i ==0 :
-                            overDetail = overDetail + str(math.floor(commonGoHomeTime/60))+':'+str(commonGoHomeTime%60) + '~'+str(math.floor((commonGoHomeTime+60)/60))+':'+str((commonGoHomeTime+60)%60)+'\r\n'
-                            currentHr =str(math.floor((commonGoHomeTime+60)/60)).zfill(2)
-                            currentMin = str((commonGoHomeTime+60)%60).zfill(2)
-                            commonGoHomeTime = commonGoHomeTime+60
+                        if i == 0:
+                            overDetail = overDetail + str(math.floor(commonGoHomeTime / 60)) + ':' + str(
+                                commonGoHomeTime % 60) + '~' + str(
+                                math.floor((commonGoHomeTime + 60) / 60)) + ':' + str(
+                                (commonGoHomeTime + 60) % 60) + '\r\n'
+                            currentHr = str(math.floor((commonGoHomeTime + 60) / 60)).zfill(2)
+                            currentMin = str((commonGoHomeTime + 60) % 60).zfill(2)
+                            commonGoHomeTime = commonGoHomeTime + 60
                         else:
-                            overDetail = overDetail + currentHr+':'+currentMin + '~'+str(math.floor((commonGoHomeTime+45)/60)).zfill(2)+':'+str((commonGoHomeTime+45)%60).zfill(2)+'\r\n'
-                            currentHr =str(math.floor((commonGoHomeTime+45)/60)).zfill(2)
-                            currentMin = str((commonGoHomeTime+45)%60).zfill(2)
-                            commonGoHomeTime = commonGoHomeTime+45
-                    print(str(row[0])+str(row[1])+':'+str(row[2])+'~'+str(row[3])+':'+str(row[4])+'\t加班'+str(overwork)+'小時')
+                            overDetail = overDetail + currentHr + ':' + currentMin + '~' + str(
+                                math.floor((commonGoHomeTime + 45) / 60)).zfill(2) + ':' + str(
+                                (commonGoHomeTime + 45) % 60).zfill(2) + '\r\n'
+                            currentHr = str(math.floor((commonGoHomeTime + 45) / 60)).zfill(2)
+                            currentMin = str((commonGoHomeTime + 45) % 60).zfill(2)
+                            commonGoHomeTime = commonGoHomeTime + 45
+                    print(str(row[0]) + str(row[1]) + ':' + str(row[2]) + '~' + str(row[3]) + ':' + str(
+                        row[4]) + '\t加班' + str(overwork) + '小時')
                     print(overDetail)
                 else:
                     pass
@@ -184,7 +194,7 @@ class JP:
             'Postman-Token': "fe30cd2c-cf0b-4344-8f6b-432c00c2be95,67dd0357-6993-4030-91c1-6a01033a640d",
             'Host': "secom",
             'Accept-Encoding': "gzip, deflate",
-            'Cookie': "Personal=Password=&Name=; "+self.dynamicParameter+"="+self.dynamicParameterValue,
+            'Cookie': "Personal=Password=&Name=; " + self.dynamicParameter + "=" + self.dynamicParameterValue,
             'Connection': "keep-alive",
             'cache-control': "no-cache"
         }
@@ -209,10 +219,10 @@ class JP:
         response = requests.request("POST", 'http://secom/work_time/Voc/VocLoginUD.asp', headers=headers, params=data)
         if response.status_code == 200:
             return 1
-        else :
+        else:
             return 0
         ## year         年
-    
+
     # 登入工時
     ## year         年(民國年 ex 109)
     ## month        月
@@ -239,7 +249,7 @@ class JP:
             'Postman-Token': "fe30cd2c-cf0b-4344-8f6b-432c00c2be95,67dd0357-6993-4030-91c1-6a01033a640d",
             'Host': "secom",
             'Accept-Encoding': "gzip, deflate",
-            'Cookie': "Personal=Password=&Name=; "+self.dynamicParameter+"="+self.dynamicParameterValue,
+            'Cookie': "Personal=Password=&Name=; " + self.dynamicParameter + "=" + self.dynamicParameterValue,
             'Connection': "keep-alive",
             'cache-control': "no-cache"
         }
@@ -262,9 +272,9 @@ class JP:
         response = requests.request("POST", 'http://secom/work_time/Wt/WT_LoginUD.asp', headers=headers, params=data)
         if response.status_code == 200:
             return 1
-        else :
+        else:
             return 0
-    
+
     # 查詢工時
     def SearchWorkTime(self, year, month, day):
         headers = {
@@ -275,7 +285,7 @@ class JP:
             'Postman-Token': "fe30cd2c-cf0b-4344-8f6b-432c00c2be95,67dd0357-6993-4030-91c1-6a01033a640d",
             'Host': "secom",
             'Accept-Encoding': "gzip, deflate",
-            'Cookie': "Personal=Password=&Name=; "+self.dynamicParameter+"="+self.dynamicParameterValue,
+            'Cookie': "Personal=Password=&Name=; " + self.dynamicParameter + "=" + self.dynamicParameterValue,
             'Connection': "keep-alive",
             'cache-control': "no-cache"
         }
@@ -298,27 +308,27 @@ class JP:
         if response.status_code == 200:
             try:
                 result = response.text.index('您本日的工作時數=')
-                todayWorktime  = response.text[result+9:result+14].replace('小','')
+                todayWorktime = response.text[result + 9:result + 14].replace('小', '')
                 return int(todayWorktime)
             except Exception:
                 return 0
-        else :
+        else:
             return 0
 
     # (private method)新增/更新資料 
-    def __InsertUpdate(self , query):
+    def __InsertUpdate(self, query):
         conn = sqlite3.connect(r"D:\Backup\LeoYang\Desktop\Project\own\Python\WorkTIme\Test.db")
         cursorObj = conn.cursor()
         cursorObj.execute(query)
         conn.commit()
         conn.close()
-        #print(query + ' Successful')
+        # print(query + ' Successful')
 
     # (private method)刪除資料 
-    def __Delete(self , query):
+    def __Delete(self, query):
         conn = sqlite3.connect(r"D:\Backup\LeoYang\Desktop\Project\own\Python\WorkTIme\Test.db")
         cursorObj = conn.cursor()
         cursorObj.execute(query)
         conn.commit()
         conn.close()
-        #print(query+' Successful')
+        # print(query+' Successful')
