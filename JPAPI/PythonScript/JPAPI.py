@@ -256,6 +256,7 @@ class JP:
         except Exception:
             return 0
     
+    # 計算遲到補修差
     def CalculateTotalSummary(self):
         try:
             totalHr = 0
@@ -427,7 +428,8 @@ class JP:
             return 1
         except Exception:
             return 0
-
+    
+    # 印出打卡資料
     def ShowWorkData(self):
         try:
             conn = sqlite3.connect(r".\Test.db")
@@ -482,8 +484,10 @@ class JP:
         }
         response = requests.request("POST", 'http://secom/work_time/Voc/VocLoginUD.asp', headers=headers, params=data)
         if response.status_code == 200:
+            print(str(month)+'/'+str(day)+'請假成功')
             return 1
         else:
+            print(str(month)+'/'+str(day)+'請假失敗')
             return 0
         ## year         年
 
@@ -494,7 +498,10 @@ class JP:
     # worktime     工時
     # project      專案代碼
     # type         工作類型
-    # team         組別(1.業務部 29.研發部)
+    # team         組別(1.業務部 2.開發  3.客服  4.顧問       5.管理       6.新進人員  7.離職    8.外包人力  9.國泰駐外  10.測試部
+    #                   11.技術  12.任務 13.顧服 14.技術一部  15.技術二部  16.技術三部 17.專案組 18.技術股務 19.技術投信 20.技術證券
+    #                   21.專案三組 22.專案一組 23.專案二組 24.技術銀行一 25.技術銀行二 26.專案測試部 27.專案部 28.總經理室 29.研發部 30.管理顧問
+    #                   31.技術支援 32.銀行證券 33.技術三組 34.技術五組 35.海外事業部
     # sample
     # 登入一天
     #      leo.LoginWorkTime('109', '6', 1, 1, '0000099914', '00K6      ', 1)
@@ -535,8 +542,10 @@ class JP:
         }
         response = requests.request("POST", 'http://secom/work_time/Wt/WT_LoginUD.asp', headers=headers, params=data)
         if response.status_code == 200:
+            print('登入 '+str(month)+'/' + str(day) + ' 工時成功')
             return 1
         else:
+            print('登入 '+str(month)+'/' + str(day) + ' 工時失敗')
             return 0
 
     # 查詢工時
@@ -578,74 +587,80 @@ class JP:
                 return 0
         else:
             return 0
-
+    
+    # 檢查是否有異常打卡資料(沒打上班卡、沒打下班卡)
+    def CheckError(self):
+        result = 0
+        conn = sqlite3.connect(r".\Test.db")
+        cursorObj = conn.cursor()
+        cursorObj.execute("SELECT Arrive FROM WorkTime where Arrive = 99")
+        rows = cursorObj.fetchall()
+        if len(rows) > 0:
+            return 0
+        else:
+            return 1
+           
+    
 # sample code
 if __name__ == '__main__':
 
+    chris = JP('chrisli', '12345', '109', '08')
     leo = JP('leoyang', '12345', '109', '08')
+    
+    
     # 登入
     loginResult = leo.Login()
+    chris.Login()
     if loginResult == 0:
         print('登入失敗')
         sys.exit()
     else:
         print('登入成功')
 
-    # # 取得當月差勤資料
+    # 取得當月差勤資料
     getDataResult = leo.GetThisMonthArriveData()
     if getDataResult == 0:
         print('取得當月差勤資料失敗')
         sys.exit()
     else:
         print('取得當月差勤資料成功')
-
-    # #印出工作資料
-    leo.ShowWorkData()
-    # #印出加班請假資料
-    #leo.OvertimeAfterLeaveOfAbsence()
-    leo.CalculateTotalSummary()
-    #
+        
+    
+    # #印出打卡資料
+    # leo.ShowWorkData()
+    
+    #印出加班請假資料
+    leo.OvertimeAfterLeaveOfAbsence()
+    
+    # 計算遲到補修差(-遲到+補修)
+    #leo.CalculateTotalSummary()
+    
     # #請假(請假要自己算)
-    # leo.AskLeave('2020', '07', '03', '09', '120')
-    # leo.AskLeave('2020', '07', '06', '09', '120')
-    # leo.AskLeave('2020', '07', '07', '09', '100')
-    # leo.AskLeave('2020', '07', '08', '183', '193')
-    # leo.AskLeave('2020', '07', '10', '09', '100')
-    # #leo.AskLeave('2020', '07', '13', '09', '110')   #應該沒早退
-    # leo.AskLeave('2020', '07', '14', '09', '100')
-    # leo.AskLeave('2020', '07', '15', '09', '110')
-    # leo.AskLeave('2020', '07', '17', '09', '100')
-    # leo.AskLeave('2020', '07', '20', '09', '100')
-    # leo.AskLeave('2020', '07', '27', '09', '120')
-    # leo.AskLeave('2020', '07', '28', '09', '100')
-    # leo.AskLeave('2020', '07', '29', '09', '100')
-    # leo.AskLeave('2020', '07', '30', '09', '100')
-    # leo.AskLeave('2020', '07', '31', '09', '110')
-
-    # 登工時
-    # for i in range(1, 31):
-    #     result = leo.SearchWorkTime('109', '7', str(i))
-    #     # 登入工時
-    #     if result != 0:
-    #         print('登入 7/' + str(i) + ' 工時' + str(result))
-            #leo.LoginWorkTime('109', '7', str(i), str(result), '0000099914', '00K6      ', 1)
-    # leo.LoginWorkTime('109', '7', '1', '8', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '2', '10', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '3', '6', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '6', '8', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '7', '9', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '8', '7', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '9', '8', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '10', '9', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '13', '8', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '14', '8', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '15', '8', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '16', '8', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '17', '8', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '20', '7', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '24', '8', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '27', '8', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '28', '10', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '29', '10', '0000099914', '00K6      ', 29)
-    # leo.LoginWorkTime('109', '7', '30', '7', '0000099914', '00K6      ', 29)
-
+    # leo.AskLeave('2020', '08', '03', '09', '120')
+    # leo.AskLeave('2020', '08', '04', '09', '110')
+    # leo.AskLeave('2020', '08', '05', '09', '110')
+    # leo.AskLeave('2020', '08', '07', '09', '100')
+    # leo.AskLeave('2020', '08', '11', '09', '100')
+    # leo.AskLeave('2020', '08', '13', '09', '100')
+    # leo.AskLeave('2020', '08', '14', '09', '100')
+    # leo.AskLeave('2020', '08', '17', '09', '100')
+    # leo.AskLeave('2020', '08', '18', '09', '100')
+    # leo.AskLeave('2020', '08', '21', '09', '110')
+    # leo.AskLeave('2020', '08', '25', '09', '100')
+    # leo.AskLeave('2020', '08', '26', '09', '100')
+    # leo.AskLeave('2020', '08', '27', '09', '100')
+    # leo.AskLeave('2020', '08', '28', '09', '100')
+    # leo.AskLeave('2020', '08', '31', '09', '100')
+    
+    ErrorDataExists = leo.CheckError()
+    if ErrorDataExists == 1:
+        # 登工時
+        for i in range(1, 32):
+            result = leo.SearchWorkTime('109', '8', str(i))
+            # 登入工時
+            if result != 0:
+                leo.LoginWorkTime('109', '8', str(i), str(result), '0000099914', '00K6      ', 14)
+                chris.LoginWorkTime('109', '8', str(i), str(result), '0000099914', '00K6      ', 14)
+    else:
+        print('有異常打卡資料')
+    
