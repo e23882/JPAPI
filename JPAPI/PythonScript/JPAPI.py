@@ -224,9 +224,9 @@ class JP:
                     for i in range(overwork):
                         if i == 0:
                             overDetail = overDetail + str(math.floor(commonGoHomeTime / 60)) + ':' + str(
-                                commonGoHomeTime % 60) + '~' + str(
+                                commonGoHomeTime % 60).zfill(2) + '~' + str(
                                 math.floor((commonGoHomeTime + 60) / 60)) + ':' + str(
-                                (commonGoHomeTime + 60) % 60) + '\r\n'
+                                (commonGoHomeTime + 60) % 60).zfill(2) + '\r\n'
                             currentHr = str(math.floor((commonGoHomeTime + 60) / 60)).zfill(2)
                             currentMin = str((commonGoHomeTime + 60) % 60).zfill(2)
                             commonGoHomeTime = commonGoHomeTime + 60
@@ -251,10 +251,54 @@ class JP:
                             overwork) + '小時')
                         print(overDetail)
                 else:
-                    pass
+                    print(str(row[0])+'沒有加班\r\n')
             return 1
         except Exception:
             return 0
+    
+    # 取得請假時數
+    def GetTimeOff(self, month, day):
+         
+        conn = sqlite3.connect(r".\Test.db")
+        cursorObj = conn.cursor()
+        cursorObj.execute("SELECT substr(WeekDay, 1, INSTR(WeekDay, '星期')-1) as 'Date', substr(Arrive, 1, 2) as 'ArriveHR', substr(Arrive, 4, 2) as 'ArriveMin', substr(Leave, 1, 2) as 'LeaveHR', substr(Leave, 4, 2) as 'LeaveMin', case when instr(Arrive, '99') = 1 then 'Error' when instr(Leave, '99') = 1 then 'Error' when substr(Arrive, 1, 2) = substr(Leave, 1, 2) then 'Error' else '' end as 'Status' FROM WorkTime where trim(substr(WeekDay, 6, 5)) = '"+str(month)+"/"+str(day)+"'")
+                           
+        rows = cursorObj.fetchall()
+        for row in rows:
+            LocalStartHr = '09'
+            LocalStartMin = '00'
+            LocalEndHr = '18'
+            LocalEndMin = '30'
+            arrive = 0
+            # 上班打卡 時
+            LocalStartHr = str(row[1])
+            # 上班打卡 分
+            LocalStartMin = str(row[2])
+            # 下單打卡 時
+            LocalEndHr = str(row[3])
+            # 下單打卡 分
+            LocalEndMin = str(row[4])
+            # 上班時間換算成分鐘(用在計算是否滿足加班)
+            arrive = 0
+            # 應該請假時數
+            LeaveAbsence = 0
+
+            # 判斷是否遲到，遲到的話 計算遲到時數，設定上班時間為九點
+            if int(LocalStartHr) == 10:
+                return 1
+            elif int(LocalStartHr) == 11:
+                return 2
+            elif int(LocalStartHr) == 12:
+                return 3
+            elif int(LocalStartHr) == 13:
+                if int(LocalStartMin) < 30:
+                    return 3
+                else:
+                    return 4
+            elif int(LocalStartHr) == 14:
+                return 4
+            else:
+                return
     
     # 計算遲到補修差
     def CalculateTotalSummary(self):
@@ -599,8 +643,7 @@ class JP:
             return 0
         else:
             return 1
-           
-    
+
 # sample code
 if __name__ == '__main__':
 
@@ -616,7 +659,7 @@ if __name__ == '__main__':
         sys.exit()
     else:
         print('登入成功')
-
+    
     # 取得當月差勤資料
     getDataResult = leo.GetThisMonthArriveData()
     if getDataResult == 0:
@@ -631,6 +674,16 @@ if __name__ == '__main__':
     
     #印出加班請假資料
     leo.OvertimeAfterLeaveOfAbsence()
+    # print(leo.GetTimeOff(8, 1))
+    # print(leo.GetTimeOff(8, 2))
+    # print(leo.GetTimeOff(8, 3))
+    # print(leo.GetTimeOff(8, 4))
+    # print(leo.GetTimeOff(8, 5))
+    # print(leo.GetTimeOff(8, 6))
+    # print(leo.GetTimeOff(8, 7))
+    # print(leo.GetTimeOff(8, 8))
+    # print(leo.GetTimeOff(8, 9))
+    # print(leo.GetTimeOff(8, 10))
     
     # 計算遲到補修差(-遲到+補修)
     #leo.CalculateTotalSummary()
@@ -640,7 +693,7 @@ if __name__ == '__main__':
     # leo.AskLeave('2020', '08', '04', '09', '110')
     # leo.AskLeave('2020', '08', '05', '09', '110')
     # leo.AskLeave('2020', '08', '07', '09', '100')
-    # leo.AskLeave('2020', '08', '11', '09', '100')
+    # leo.AskLeave('2020', '08', '12', '09', '100')
     # leo.AskLeave('2020', '08', '13', '09', '100')
     # leo.AskLeave('2020', '08', '14', '09', '100')
     # leo.AskLeave('2020', '08', '17', '09', '100')
@@ -652,15 +705,15 @@ if __name__ == '__main__':
     # leo.AskLeave('2020', '08', '28', '09', '100')
     # leo.AskLeave('2020', '08', '31', '09', '100')
     
-    ErrorDataExists = leo.CheckError()
-    if ErrorDataExists == 1:
-        # 登工時
-        for i in range(1, 32):
-            result = leo.SearchWorkTime('109', '8', str(i))
-            # 登入工時
-            if result != 0:
-                leo.LoginWorkTime('109', '8', str(i), str(result), '0000099914', '00K6      ', 14)
-                chris.LoginWorkTime('109', '8', str(i), str(result), '0000099914', '00K6      ', 14)
-    else:
-        print('有異常打卡資料')
+    # ErrorDataExists = leo.CheckError()
+    # if ErrorDataExists == 1:
+        # # 登工時
+        # for i in range(1, 32):
+            # result = leo.SearchWorkTime('109', '8', str(i))
+            # # 登入工時
+            # if result != 0:
+                # leo.LoginWorkTime('109', '8', str(i), str(result), '0000099914', '00K6      ', 14)
+                # chris.LoginWorkTime('109', '8', str(i), str(result), '0000099914', '00K6      ', 14)
+    # else:
+        # print('有異常打卡資料')
     
