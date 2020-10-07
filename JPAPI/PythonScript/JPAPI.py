@@ -5,7 +5,7 @@ import sqlite3
 import os.path
 import math
 import re
-
+import math
 
 # Jepun請假API
 
@@ -16,8 +16,6 @@ def InsertUpdate(query):
     cursorObj.execute(query)
     conn.commit()
     conn.close()
-    # print(query + ' Successful')
-
 
 # (static method)刪除資料
 def Delete(query):
@@ -27,8 +25,8 @@ def Delete(query):
     conn.commit()
     conn.close()
 
-
 class JP:
+    # Region Declarations
     # 使用者帳號
     username = 'leoyang'
     # 使用者密碼
@@ -37,11 +35,12 @@ class JP:
     year = '109'
     # 月份
     month = '09'
-
+    
+    #JWT
     dynamicParameter = ''
     dynamicParameterValue = ''
     globalCookie = ''
-
+    
     # 建構子
     # username 使用者名稱
     # password 使用者密碼
@@ -71,7 +70,6 @@ class JP:
         }
         response = requests.request("POST", url, headers=headers, params=querystring)
         globalCookie = response.cookies.get_dict()
-        # print(cookies)
         st = str(globalCookie)
         st = st[1:int(st.index(','))].replace("'", "").replace(":", "=").replace(" ", "")
         self.dynamicParameter = st[0:st.index('=')]
@@ -115,7 +113,6 @@ class JP:
         response = requests.request("Get", 'http://secom/work_time/Voc/OnTimeQya1.asp', headers=headers, params=data)
         response.encoding = 'big5'
         if response.status_code == 200:
-            # print('select ok')
             result = response.text[response.text.index('<html>'):response.text.index('<html>') + response.text.index(
                 '</html>')].replace('\r', '').replace('\n', '').replace('\t', '')
             soup = bs(result.replace('s_Clr2', 's_Clr1'), 'html.parser')
@@ -143,358 +140,151 @@ class JP:
         else:
             return 0
 
-    # 計算請假後加班時間、明細(from LocalDB)
+    # 計算加班、請假明細 & 當月加班請假差
     def OvertimeAfterLeaveOfAbsence(self):
-        try:
-            conn = sqlite3.connect(r".\Test.db")
-            cursorObj = conn.cursor()
-            cursorObj.execute("SELECT substr(WeekDay, 1, INSTR(WeekDay, '星期')-1) as 'Date', substr(Arrive, 1, 2) as 'ArriveHR', substr(Arrive, 4, 2) as 'ArriveMin', substr(Leave, 1, 2) as 'LeaveHR', substr(Leave, 4, 2) as 'LeaveMin', case when instr(Arrive, '99') = 1 then 'Error' when instr(Leave, '99') = 1 then 'Error' when substr(Arrive, 1, 2) = substr(Leave, 1, 2) then 'Error' else '' end as 'Status' FROM WorkTime")
-            rows = cursorObj.fetchall()
-            for row in rows:
-                LocalStartHr = '09'
-                LocalStartMin = '00'
-                LocalEndHr = '18'
-                LocalEndMin = '30'
-                arrive = 0
-                # 上班打卡 時
-                LocalStartHr = str(row[1])
-                # 上班打卡 分
-                LocalStartMin = str(row[2])
-                # 下單打卡 時
-                LocalEndHr = str(row[3])
-                # 下單打卡 分
-                LocalEndMin = str(row[4])
-                # 上班時間換算成分鐘(用在計算是否滿足加班)
-                arrive = 0
-                # 應該請假時數
-                LeaveAbsence = 0
-
-                # 判斷是否遲到，遲到的話 計算遲到時數，設定上班時間為九點
-                if int(LocalStartHr) == 10:
-                    LeaveAbsence = 1
-                    LocalStartHr = '09'
-                elif int(LocalStartHr) == 11:
-                    LeaveAbsence = 2
-                    LocalStartHr = '09'
-                elif int(LocalStartHr) == 12:
-                    LeaveAbsence = 3
-                    LocalStartHr = '09'
-                    LocalStartMin = '00'
-                elif int(LocalStartHr) == 13:
-                    LeaveAbsence = 3
-                    LocalStartHr = '09'
-                    if int(LocalStartMin) < 30:
-                        LocalStartMin = '00'
-                    else:
-                        pass
-                elif int(LocalStartHr) == 14:
-                    LeaveAbsence = 4
-                    LocalStartHr = '09'
-                    if int(LocalStartMin) < 30:
-                        LocalStartMin = '00'
-                    else:
-                        pass
-                else:
-                    pass
-                arrive = int(LocalStartHr) * 60 + int(LocalStartMin)
-                leave = int(LocalEndHr) * 60 + int(LocalEndMin)
-                data = 0
-                overwork = 0
-                overDetail = ''
-                if (leave - arrive - 570) > 60:
-                    # 1.計算加班
-                    # 1.1計算加班第一小時
-                    data = leave - arrive - 630
-                    overwork = overwork + 1
-                    # 1.2計算加班第一小時後
-                    while data >= 45:
-                        data = data - 45
-                        overwork = overwork + 1
-                    # ================================================================================================================
-                    # 2.計算加班明細
-                    startHr = 9
-                    # 2.1 如果有遲到重新設定開始時間
-                    if int(LocalStartHr) > 9:
-                        startHr = 9
-                    else:
-                        startHr = int(LocalStartHr)
-                    commonGoHomeTime = startHr * 60 + int(LocalStartMin) + 90 + 480
-                    currentHr = ''
-                    currentMin = ''
-                    for i in range(overwork):
-                        if i == 0:
-                            overDetail = overDetail + str(math.floor(commonGoHomeTime / 60)) + ':' + str(
-                                commonGoHomeTime % 60).zfill(2) + '~' + str(
-                                math.floor((commonGoHomeTime + 60) / 60)) + ':' + str(
-                                (commonGoHomeTime + 60) % 60).zfill(2) + '\r\n'
-                            currentHr = str(math.floor((commonGoHomeTime + 60) / 60)).zfill(2)
-                            currentMin = str((commonGoHomeTime + 60) % 60).zfill(2)
-                            commonGoHomeTime = commonGoHomeTime + 60
-                        else:
-                            overDetail = overDetail + currentHr + ':' + currentMin + '~' + str(
-                                math.floor((commonGoHomeTime + 45) / 60)).zfill(2) + ':' + str(
-                                (commonGoHomeTime + 45) % 60).zfill(2) + '\r\n'
-                            currentHr = str(math.floor((commonGoHomeTime + 45) / 60)).zfill(2)
-                            currentMin = str((commonGoHomeTime + 45) % 60).zfill(2)
-                            commonGoHomeTime = commonGoHomeTime + 45
-                    if LeaveAbsence > 0:
-                        if overwork<15:
-                            print(str(row[0]) + str(row[1]) + ':' + str(row[2]) + '~' + str(row[3]) + ':' + str(
-                                row[4]) + '\t請假' + str(LeaveAbsence) + '小時' + '\t加班' + str(overwork) + '小時')
-                            print(overDetail)
-                        else:
-                            print(str(row[0]) + str(row[1]) + ':' + str(row[2]) + '~' + str(row[3]) + ':' + str(
-                                row[4]) + '\t請假' + str(LeaveAbsence) + '小時' + '\t加班' + str(overwork) + '小時')
-                            print('上下班打卡異常,不印資料\r\n')
-                    else:
-                        print(str(row[0]) + str(row[1]) + ':' + str(row[2]) + '~' + str(row[3]) + ':' + str(row[4]) + '\t加班' + str(
-                            overwork) + '小時')
-                        print(overDetail)
-                else:
-                    print(str(row[0])+'沒有加班\r\n')
-            return 1
-        except Exception:
-            return 0
-    
-    # 取得請假時數
-    def GetTimeOff(self, month, day):
-         
         conn = sqlite3.connect(r".\Test.db")
         cursorObj = conn.cursor()
-        cursorObj.execute("SELECT substr(WeekDay, 1, INSTR(WeekDay, '星期')-1) as 'Date', substr(Arrive, 1, 2) as 'ArriveHR', substr(Arrive, 4, 2) as 'ArriveMin', substr(Leave, 1, 2) as 'LeaveHR', substr(Leave, 4, 2) as 'LeaveMin', case when instr(Arrive, '99') = 1 then 'Error' when instr(Leave, '99') = 1 then 'Error' when substr(Arrive, 1, 2) = substr(Leave, 1, 2) then 'Error' else '' end as 'Status' FROM WorkTime where trim(substr(WeekDay, 6, 5)) = '"+str(month)+"/"+str(day)+"'")
-                           
+        cursorObj.execute("SELECT substr(WeekDay, 1, INSTR(WeekDay, '星期')-1) as 'Date', substr(Arrive, 1, 2) as 'ArriveHR', substr(Arrive, 4, 2) as 'ArriveMin', substr(Leave, 1, 2) as 'LeaveHR', substr(Leave, 4, 2) as 'LeaveMin', case when instr(Arrive, '99') = 1 then 'Error' when instr(Leave, '99') = 1 then 'Error' when substr(Arrive, 1, 2) = substr(Leave, 1, 2) then 'Error' else '' end as 'Status' FROM WorkTime")
         rows = cursorObj.fetchall()
+        count = 0
         for row in rows:
-            LocalStartHr = '09'
-            LocalStartMin = '00'
-            LocalEndHr = '18'
-            LocalEndMin = '30'
-            arrive = 0
-            # 上班打卡 時
-            LocalStartHr = str(row[1])
-            # 上班打卡 分
-            LocalStartMin = str(row[2])
-            # 下單打卡 時
-            LocalEndHr = str(row[3])
-            # 下單打卡 分
-            LocalEndMin = str(row[4])
-            # 上班時間換算成分鐘(用在計算是否滿足加班)
-            arrive = 0
-            # 應該請假時數
-            LeaveAbsence = 0
-
-            # 判斷是否遲到，遲到的話 計算遲到時數，設定上班時間為九點
-            if int(LocalStartHr) == 10:
-                return 1
-            elif int(LocalStartHr) == 11:
-                return 2
-            elif int(LocalStartHr) == 12:
-                return 3
-            elif int(LocalStartHr) == 13:
-                if int(LocalStartMin) < 30:
-                    return 3
-                else:
-                    return 4
-            elif int(LocalStartHr) == 14:
-                return 4
-            else:
-                return
-    
-    # 計算遲到補修差
-    def CalculateTotalSummary(self):
-        try:
-            totalHr = 0
-            totalLate = 0
-            totalOver = 0
-            conn = sqlite3.connect(r".\Test.db")
-            cursorObj = conn.cursor()
-            cursorObj.execute("SELECT substr(WeekDay, 1, INSTR(WeekDay, '星期')-1) as 'Date', substr(Arrive, 1, 2) as 'ArriveHR', substr(Arrive, 4, 2) as 'ArriveMin', substr(Leave, 1, 2) as 'LeaveHR', substr(Leave, 4, 2) as 'LeaveMin', case when instr(Arrive, '99') = 1 then 'Error' when instr(Leave, '99') = 1 then 'Error' when substr(Arrive, 1, 2) = substr(Leave, 1, 2) then 'Error' else '' end as 'Status' FROM WorkTime")
-            rows = cursorObj.fetchall()
-            for row in rows:
-                LocalStartHr = '09'
-                LocalStartMin = '00'
-                LocalEndHr = '18'
-                LocalEndMin = '30'
-                arrive = 0
-                # 上班打卡 時
-                LocalStartHr = str(row[1])
-                # 上班打卡 分
-                LocalStartMin = str(row[2])
-                # 下單打卡 時
-                LocalEndHr = str(row[3])
-                # 下單打卡 分
-                LocalEndMin = str(row[4])
-                # 上班時間換算成分鐘(用在計算是否滿足加班)
-                arrive = 0
-                # 應該請假時數
-                LeaveAbsence = 0
-
-                # 判斷是否遲到，遲到的話 計算遲到時數，設定上班時間為九點
-                if int(LocalStartHr) == 10:
-                    LeaveAbsence = 1
-                    LocalStartHr = '09'
-                elif int(LocalStartHr) == 11:
-                    LeaveAbsence = 2
-                    LocalStartHr = '09'
-                elif int(LocalStartHr) == 12:
-                    LeaveAbsence = 3
-                    LocalStartHr = '09'
-                    LocalStartMin = '00'
-                elif int(LocalStartHr) == 13:
-                    LeaveAbsence = 3
-                    LocalStartHr = '09'
-                    if int(LocalStartMin) < 30:
-                        LocalStartMin = '00'
-                    else:
-                        pass
-                elif int(LocalStartHr) == 14:
-                    LeaveAbsence = 4
-                    LocalStartHr = '09'
-                    if int(LocalStartMin) < 30:
-                        LocalStartMin = '00'
-                    else:
-                        pass
-                else:
-                    pass
-                arrive = int(LocalStartHr) * 60 + int(LocalStartMin)
-                leave = int(LocalEndHr) * 60 + int(LocalEndMin)
-                data = 0
-                overwork = 0
-                overDetail = ''
-                if (leave - arrive - 570) > 60:
-                    # 1.計算加班
-                    # 1.1計算加班第一小時
-                    data = leave - arrive - 630
-                    overwork = overwork + 1
-                    # 1.2計算加班第一小時後
-                    while data >= 45:
-                        data = data - 45
-                        overwork = overwork + 1
-                    # ================================================================================================================
-                    # 2.計算加班明細
-                    startHr = 9
-                    # 2.1 如果有遲到重新設定開始時間
-                    if int(LocalStartHr) > 9:
-                        startHr = 9
-                    else:
-                        startHr = int(LocalStartHr)
-                    commonGoHomeTime = startHr * 60 + int(LocalStartMin) + 90 + 480
-                    currentHr = ''
-                    currentMin = ''
-                    for i in range(overwork):
-                        if i == 0:
-                            overDetail = overDetail + str(math.floor(commonGoHomeTime / 60)) + ':' + str(
-                                commonGoHomeTime % 60) + '~' + str(
-                                math.floor((commonGoHomeTime + 60) / 60)) + ':' + str(
-                                (commonGoHomeTime + 60) % 60) + '\r\n'
-                            currentHr = str(math.floor((commonGoHomeTime + 60) / 60)).zfill(2)
-                            currentMin = str((commonGoHomeTime + 60) % 60).zfill(2)
-                            commonGoHomeTime = commonGoHomeTime + 60
-                        else:
-                            overDetail = overDetail + currentHr + ':' + currentMin + '~' + str(
-                                math.floor((commonGoHomeTime + 45) / 60)).zfill(2) + ':' + str(
-                                (commonGoHomeTime + 45) % 60).zfill(2) + '\r\n'
-                            currentHr = str(math.floor((commonGoHomeTime + 45) / 60)).zfill(2)
-                            currentMin = str((commonGoHomeTime + 45) % 60).zfill(2)
-                            commonGoHomeTime = commonGoHomeTime + 45
-                    if overwork<15:
-                        totalHr = totalHr-LeaveAbsence+overwork              
-                        totalLate = totalLate +LeaveAbsence
-                        totalOver = totalOver+overwork
-                    else:
-                        print(str(row[0])+'資料異常 遲到:'+str(LeaveAbsence)+', 補修:'+str(overwork))
-                else:
-                    pass
-            print('Summary : '+str(totalHr))
-            print('加班 : '+str(totalOver))
-            print('遲到 : '+str(totalLate))
+            # 日期
+            date = row[0]
+            
+            # 上班時間(時)
+            arriveHr = int(row[1])
+            
+            # 上班時間(分)
+            arriveMin= int(row[2])
+            
+            # 下班時間(時)
+            leavHr = int(row[3])
+            
+            # 下班時間(分)
+            leavMin = int(row[4])
+            
+            # 取得上班遲到時數(時)
+            LateResult = self.__GetLateHour(arriveHr, arriveMin, leavHr, leavMin)
+            # 取得加班時數(時)
+            OverworkResult = self.__GetWorkOver(arriveHr, arriveMin, leavHr, leavMin, LateResult)
+            # 取得加班明細
+            detail = self.__GetWorkoverDetail(arriveHr, arriveMin, leavHr, leavMin, LateResult, OverworkResult)
+            # 取得早退時數(時)
+            earlyLeave = self.__GetEarlyLeave(arriveHr, arriveMin, leavHr, leavMin, LateResult)
+            # 加班請假差(時)
+            count = count - LateResult + OverworkResult -earlyLeave
+            
+            print(f"{date} {str(arriveHr).zfill(2)}:{str(arriveMin).zfill(2)} {str(leavHr).zfill(2)}:{str(leavMin).zfill(2)}\t遲到 {LateResult} 小時\t加班 {OverworkResult} 小時 \t早退{earlyLeave} 小時")
+            if detail != '':
+                print(detail)
+  
+        if count < 0 :
+            print(f"本月額外請假時數 {-count}小時")
+        else :
+            print(f"本月額外補修時數 {count}小時")
+            
+    # 取得遲到時數(Private Function)
+    def __GetLateHour(self, arriveHr, arriveMin, leaveHr, leaveMin):
+        # 10:0X遲到
+        if arriveHr == 10 and arriveMin > 0:
             return 1
-        except Exception:
+        # 11:0x遲到
+        elif arriveHr == 11 and arriveMin > 0:
+            return 2
+        elif (arriveHr == 12 and arriveMin > 0) or (arriveHr==13 and arriveMin<=30):
+            return 3
+        elif arriveHr == 13 and arriveMin > 30:
+            return 4
+        elif arriveHr == 14 and arriveMin > 30:
+            return 5
+        elif arriveHr == 15 and arriveMin > 30:
+            return 6
+        elif arriveHr == 16 and arriveMin > 30:
+            return 7
+        elif arriveHr == 17 and arriveMin > 30:
+            return 8
+        else:
             return 0
     
-    # 計算請假前加班時間、明細(from LocalDB)
-    def CalculateLeaveDay(self):
-        try:
-            conn = sqlite3.connect(r".\Test.db")
-            cursorObj = conn.cursor()
-            cursorObj.execute(
-                "SELECT substr(WeekDay, 1, INSTR(WeekDay, '星期')-1) as 'Date', substr(Arrive, 1, 2) as 'ArriveHR', substr(Arrive, 4, 2) as 'ArriveMin', substr(Leave, 1, 2) as 'LeaveHR', substr(Leave, 4, 2) as 'LeaveMin', case when instr(Arrive, '99') = 1 then 'Error' when instr(Leave, '99') = 1 then 'Error' when substr(Arrive, 1, 2) = substr(Leave, 1, 2) then 'Error' else '' end as 'Status' FROM WorkTime")
-            rows = cursorObj.fetchall()
-            for row in rows:
-                arrive = int(row[1]) * 60 + int(row[2])
-                leave = int(row[3]) * 60 + int(row[4])
-                data = 0
-                overwork = 0
-                overDetail = ''
-                if (leave - arrive - 570) > 60:
-                    # 1.計算加班
-                    # 1.1計算加班第一小時
-                    data = leave - arrive - 630
-                    overwork = overwork + 1
-                    # 1.2計算加班第一小時後
-                    while data >= 45:
-                        data = data - 45
-                        overwork = overwork + 1
-                    # ================================================================================================================
-                    # 2.計算加班明細
-                    startHr = 9
-                    # 2.1 如果有遲到重新設定開始時間
-                    if int(row[1]) > 9:
-                        startHr = 9
-                    else:
-                        startHr = int(row[1])
-                    commonGoHomeTime = startHr * 60 + int(row[2]) + 90 + 480
-                    currentHr = ''
-                    currentMin = ''
-                    if overwork<10:
-                        for i in range(overwork):
-                            if i == 0:
-                                overDetail = overDetail + str(math.floor(commonGoHomeTime / 60)) + ':' + str(
-                                    commonGoHomeTime % 60) + '~' + str(
-                                    math.floor((commonGoHomeTime + 60) / 60)) + ':' + str(
-                                    (commonGoHomeTime + 60) % 60) + '\r\n'
-                                currentHr = str(math.floor((commonGoHomeTime + 60) / 60)).zfill(2)
-                                currentMin = str((commonGoHomeTime + 60) % 60).zfill(2)
-                                commonGoHomeTime = commonGoHomeTime + 60
-                            else:
-                                overDetail = overDetail + currentHr + ':' + currentMin + '~' + str(
-                                    math.floor((commonGoHomeTime + 45) / 60)).zfill(2) + ':' + str(
-                                    (commonGoHomeTime + 45) % 60).zfill(2) + '\r\n'
-                                currentHr = str(math.floor((commonGoHomeTime + 45) / 60)).zfill(2)
-                                currentMin = str((commonGoHomeTime + 45) % 60).zfill(2)
-                                commonGoHomeTime = commonGoHomeTime + 45
+    # 取得加班時數(Private Function)
+    def __GetWorkOver(self, arriveHr, arriveMin, leaveHr, leaveMin, lateHour):
+        # 打卡記錄轉換成分鐘數方便計算
+        totalWorktime = (leaveHr*60+leaveMin)-(arriveHr*60+arriveMin)
+        # 扣掉午休
+        totalWorktime = totalWorktime - 90
+        # 扣掉八小時上班時間
+        totalWorktime = totalWorktime - 480
+        # 扣掉遲到修正時數
+        totalWorktime = totalWorktime + lateHour*60
+        
+        WorkoverHour = 0
+        while totalWorktime >60:
+            totalWorktime -= 60
+            WorkoverHour = WorkoverHour+1
+            
+        if totalWorktime>45:
+            totalWorktime -= 45
+            WorkoverHour = WorkoverHour+1
+            
+        return WorkoverHour
+   
+    # 取得加班明細(Private Function)
+    def __GetWorkoverDetail(self, arriveHr, arriveMin, leaveHr, leaveMin, lateHour, overworkHour):
+        result = ''
+        arrHr = arriveHr
+        arrMin = arriveMin
+        levHr = leaveHr
+        levMin = leaveMin
+        
+        baseLeaveHr = 18
+        baseLeaveMin = 30
+        # 如果有遲到，計算理論下班時間
+        if lateHour >0:
+            baseLeaveMin = baseLeaveMin+arriveMin
+            if baseLeaveMin > 60:
+                baseLeaveMin = baseLeaveMin - 60
+                baseLeaveHr = baseLeaveHr +1
+        
+        # 如果沒有加班，返回空字串
+        if overworkHour == 0:
+            return result
+            
+        if overworkHour == 1:
+            return f"{str(baseLeaveHr).zfill(2)}:{str(baseLeaveMin).zfill(2)} ~ {str(baseLeaveHr+1).zfill(2)}:{str(baseLeaveMin).zfill(2)}\r\n"
+        # 如果有加班，計算加班明細，
+        else :
+            for i in range(0,overworkHour):
+                
+                if overworkHour-i == 1:
+                    result += f"{str(baseLeaveHr).zfill(2)}:{str(baseLeaveMin).zfill(2)} ~ {str(baseLeaveHr+1).zfill(2)}:{str(baseLeaveMin-15).zfill(2)}\r\n"
+                else:
+                    result += f"{str(baseLeaveHr).zfill(2)}:{str(baseLeaveMin).zfill(2)} ~ {str(baseLeaveHr+1).zfill(2)}:{str(baseLeaveMin).zfill(2)}\r\n"
+                    baseLeaveHr = baseLeaveHr+1
                     
-                    print(str(row[0]) + str(row[1]) + ':' + str(row[2]) + '~' + str(row[3]) + ':' + str(
-                        row[4]) + '\t加班' + str(overwork) + '小時')
-                    print(overDetail)
-                else:
-                    pass
-            return 1
-        except Exception:
-            return 0
+        return result
     
-    # 印出打卡資料
-    def ShowWorkData(self):
-        try:
-            conn = sqlite3.connect(r".\Test.db")
-            cursorObj = conn.cursor()
-            cursorObj.execute(
-                "SELECT substr(WeekDay, 1, INSTR(WeekDay, '星期')-1) as 'Date', substr(Arrive, 1, 2) as 'ArriveHR', substr(Arrive, 4, 2) as 'ArriveMin', substr(Leave, 1, 2) as 'LeaveHR', substr(Leave, 4, 2) as 'LeaveMin', case when instr(Arrive, '99') = 1 then 'Error' when instr(Leave, '99') = 1 then 'Error' when substr(Arrive, 1, 2) = substr(Leave, 1, 2) then 'Error' else '' end as 'Status' FROM WorkTime")
-            rows = cursorObj.fetchall()
-            for row in rows:
-                print(str(row[0]) + str(row[1]) + ':' + str(row[2]) + '~' + str(row[3]) + ':' + str(row[4]) + '\t' + str(row[5]))
-            return 1
-        except Exception:
+    # 取得早退時數
+    def __GetEarlyLeave(self, arriveHr, arriveMin, leaveHr, leaveMin, lateHour):
+        arvHr = arriveHr
+        arvMin = arriveMin
+        levHr= leaveHr
+        levMin = leaveMin
+        # 打卡時間轉換分鐘，計算工時
+        acturalWork = (levHr*60+levMin) - (arvHr*60+arvMin) - (90+480)+ (lateHour*60)
+        if acturalWork<0:
+            return math.ceil((-acturalWork)/60)
+        else:
             return 0
-
+        
+    
     # 請假
     # year         年(西元年 ex 2020)
     # month        月
     # day          日
     # startHour    開始時(ex 09)
     # endHour      結束時(ex 100、110、120)
-    # sample       leo.AskLeave('2020','06','02','09','110')
-    #              leo.AskLeave('2020','6','2','09','110')
+    #   Sample       leo.AskLeave('2020','06','02','09','110')
+    #                leo.AskLeave('2020','6','2','09','110')
     def AskLeave(self, year, month, day, startHour, endHour):
         headers = {
             'Content-Type': "text/xml;charset=UTF-8",
@@ -528,13 +318,12 @@ class JP:
         }
         response = requests.request("POST", 'http://secom/work_time/Voc/VocLoginUD.asp', headers=headers, params=data)
         if response.status_code == 200:
-            print(str(month)+'/'+str(day)+'請假成功')
+            print(f"{month}/{day} 請假成功")
             return 1
         else:
-            print(str(month)+'/'+str(day)+'請假失敗')
+            print(f"{month}/{day} 請假失敗")
             return 0
-        ## year         年
-
+        
     # 登入工時
     # year         年(民國年 ex 109)
     # month        月
@@ -586,10 +375,10 @@ class JP:
         }
         response = requests.request("POST", 'http://secom/work_time/Wt/WT_LoginUD.asp', headers=headers, params=data)
         if response.status_code == 200:
-            print('登入 '+str(month)+'/' + str(day) + ' 工時成功')
+            print(f"登入 {month}/{day} 工時成功")
             return 1
         else:
-            print('登入 '+str(month)+'/' + str(day) + ' 工時失敗')
+            print(f"登入 {month}/{day} 工時失敗")
             return 0
 
     # 查詢工時
@@ -644,76 +433,5 @@ class JP:
         else:
             return 1
 
-# sample code
-if __name__ == '__main__':
 
-    chris = JP('chrisli', '12345', '109', '08')
-    leo = JP('leoyang', '12345', '109', '08')
-    
-    
-    # 登入
-    loginResult = leo.Login()
-    chris.Login()
-    if loginResult == 0:
-        print('登入失敗')
-        sys.exit()
-    else:
-        print('登入成功')
-    
-    # 取得當月差勤資料
-    getDataResult = leo.GetThisMonthArriveData()
-    if getDataResult == 0:
-        print('取得當月差勤資料失敗')
-        sys.exit()
-    else:
-        print('取得當月差勤資料成功')
-        
-    
-    # #印出打卡資料
-    # leo.ShowWorkData()
-    
-    #印出加班請假資料
-    leo.OvertimeAfterLeaveOfAbsence()
-    # print(leo.GetTimeOff(8, 1))
-    # print(leo.GetTimeOff(8, 2))
-    # print(leo.GetTimeOff(8, 3))
-    # print(leo.GetTimeOff(8, 4))
-    # print(leo.GetTimeOff(8, 5))
-    # print(leo.GetTimeOff(8, 6))
-    # print(leo.GetTimeOff(8, 7))
-    # print(leo.GetTimeOff(8, 8))
-    # print(leo.GetTimeOff(8, 9))
-    # print(leo.GetTimeOff(8, 10))
-    
-    # 計算遲到補修差(-遲到+補修)
-    #leo.CalculateTotalSummary()
-    
-    # #請假(請假要自己算)
-    # leo.AskLeave('2020', '08', '03', '09', '120')
-    # leo.AskLeave('2020', '08', '04', '09', '110')
-    # leo.AskLeave('2020', '08', '05', '09', '110')
-    # leo.AskLeave('2020', '08', '07', '09', '100')
-    # leo.AskLeave('2020', '08', '12', '09', '100')
-    # leo.AskLeave('2020', '08', '13', '09', '100')
-    # leo.AskLeave('2020', '08', '14', '09', '100')
-    # leo.AskLeave('2020', '08', '17', '09', '100')
-    # leo.AskLeave('2020', '08', '18', '09', '100')
-    # leo.AskLeave('2020', '08', '21', '09', '110')
-    # leo.AskLeave('2020', '08', '25', '09', '100')
-    # leo.AskLeave('2020', '08', '26', '09', '100')
-    # leo.AskLeave('2020', '08', '27', '09', '100')
-    # leo.AskLeave('2020', '08', '28', '09', '100')
-    # leo.AskLeave('2020', '08', '31', '09', '100')
-    
-    # ErrorDataExists = leo.CheckError()
-    # if ErrorDataExists == 1:
-        # # 登工時
-        # for i in range(1, 32):
-            # result = leo.SearchWorkTime('109', '8', str(i))
-            # # 登入工時
-            # if result != 0:
-                # leo.LoginWorkTime('109', '8', str(i), str(result), '0000099914', '00K6      ', 14)
-                # chris.LoginWorkTime('109', '8', str(i), str(result), '0000099914', '00K6      ', 14)
-    # else:
-        # print('有異常打卡資料')
-    
+
